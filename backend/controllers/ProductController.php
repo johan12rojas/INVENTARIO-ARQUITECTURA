@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/ProductModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class ProductController {
     private $productModel;
@@ -49,6 +50,13 @@ class ProductController {
 
         $productId = $this->productModel->createProduct($validation['payload']);
 
+        $auditPayload = $this->extractProductAuditData($validation['payload']);
+        $auditPayload['id'] = (int) $productId;
+
+        AuditLogger::log('Creaci�n de producto', 'Producto', $productId, [
+            'producto' => $auditPayload,
+        ]);
+
         Response::success([
             'id' => (int) $productId,
         ], 'Producto creado correctamente', 201);
@@ -78,6 +86,11 @@ class ProductController {
 
         $this->productModel->updateProduct($id, $validation['payload']);
 
+        AuditLogger::log('Actualizaci�n de producto', 'Producto', $id, [
+            'antes' => $this->extractProductAuditData($product),
+            'despues' => $this->extractProductAuditData($validation['payload']),
+        ]);
+
         Response::success(['id' => (int) $id], 'Producto actualizado correctamente');
     }
 
@@ -92,6 +105,13 @@ class ProductController {
         }
 
         $this->productModel->softDeleteProduct($id);
+
+        $productAudit = $this->extractProductAuditData($product);
+        $productAudit['id'] = (int) $product['id'];
+
+        AuditLogger::log('Eliminaci�n de producto', 'Producto', $id, [
+            'producto' => $productAudit,
+        ]);
 
         Response::success(null, 'Producto eliminado');
     }
@@ -243,6 +263,14 @@ class ProductController {
         }
 
         fclose($handle);
+
+        AuditLogger::log('Importación de productos', 'Producto', null, [
+            'archivo' => $file['name'] ?? null,
+            'procesados' => $processed,
+            'creados' => $created,
+            'actualizados' => $updated,
+            'omitidos' => $skipped,
+        ]);
 
         Response::success([
             'processed' => $processed,
@@ -397,6 +425,25 @@ class ProductController {
     private function normalizeInteger($value) {
         return (int) round($this->normalizeDecimal($value));
     }
+
+    private function extractProductAuditData(array $data): array {
+        $fields = ['sku', 'nombre', 'descripcion', 'categoria_id', 'proveedor_id', 'stock', 'stock_minimo', 'precio', 'activo'];
+        $filtered = AuditLogger::filterFields($data, $fields);
+
+        foreach (['stock', 'stock_minimo'] as $field) {
+            if (isset($filtered[$field])) {
+                $filtered[$field] = (int) $filtered[$field];
+            }
+        }
+
+        if (isset($filtered['precio'])) {
+            $filtered['precio'] = (float) $filtered['precio'];
+        }
+
+        if (isset($filtered['activo'])) {
+            $filtered['activo'] = (int) $filtered['activo'];
+        }
+
+        return $filtered;
+    }
 }
-
-

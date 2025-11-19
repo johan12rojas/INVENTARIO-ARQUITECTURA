@@ -37,3 +37,5 @@ const AlertConfigModal = ({ open, onClose }) => {
 export default AlertConfigModal;
 
 
+
+

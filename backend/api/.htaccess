@@ -1,4 +1,5 @@
 RewriteEngine On
+RewriteBase /GESTOR_INVENTARIO/backend/api/
 
 # Habilitar CORS para desarrollo
 <IfModule mod_headers.c>

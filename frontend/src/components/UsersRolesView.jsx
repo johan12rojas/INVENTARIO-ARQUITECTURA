@@ -54,6 +54,7 @@ const mapUserFromApi = (user, roleDictionary = {}) => {
     id: String(user.id),
     name: displayName,
     initials: user.initials || buildInitials(displayName),
+    avatar: user.avatar,
     email: user.email || '',
     position: user.position || roleName,
     roleId: roleKey,
@@ -342,7 +343,17 @@ const UsersRolesView = () => {
               <tr key={user.id}>
                 <td>
                   <div className="users-name">
-                    <div className="users-avatar">{user.initials}</div>
+                    <div className="users-avatar">
+                      {user.avatar ? (
+                        <img 
+                          src={`${api.API_BASE_URL.replace('/api', '')}${user.avatar}`} 
+                          alt="Avatar" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                        />
+                      ) : (
+                        user.initials
+                      )}
+                    </div>
                     <div>
                       <span>{user.name}</span>
                       <p>{user.position}</p>
@@ -360,11 +371,25 @@ const UsersRolesView = () => {
                 </td>
                 <td>
                   <div className="users-actions">
-                    <button type="button" title="Editar usuario" onClick={() => openEditModal(user)}>
-                      ✏️
+                    <button
+                      type="button"
+                      className="action"
+                      title="Editar usuario"
+                      onClick={() => openEditModal(user)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M13.5 6.5L17.5 10.5M5 19L6.61375 17.3862M18.2071 8.79289C18.5976 8.40237 18.5976 7.7692 18.2071 7.37868L16.6213 5.79289C16.2308 5.40237 15.5976 5.40237 15.2071 5.79289L6.61375 14.3862L5 19L9.61375 17.3862L18.2071 8.79289Z" stroke="#636f7b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                     </button>
-                    <button type="button" title="Eliminar usuario" onClick={() => handleDeleteUser(user)}>
-                      🗑️
+                    <button
+                      type="button"
+                      className="action"
+                      title="Eliminar usuario"
+                      onClick={() => handleDeleteUser(user)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 7H19M9 7V5C9 4.44772 9.44772 4 10 4H14C14.5523 4 15 4.44772 15 5V7M18 7V19C18 20.1046 17.1046 21 16 21H8C6.89543 21 6 20.1046 6 19V7H18Z" stroke="#d1424b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
                     </button>
                   </div>
                 </td>

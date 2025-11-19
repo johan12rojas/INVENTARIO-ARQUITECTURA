@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/SupplierModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class SupplierController {
     private $supplierModel;
@@ -45,6 +46,13 @@ class SupplierController {
 
         $supplierId = $this->supplierModel->create($validation['payload']);
 
+        $payload = $this->extractSupplierAuditData($validation['payload']);
+        $payload['id'] = (int) $supplierId;
+
+        AuditLogger::log('Creaci�n de proveedor', 'Proveedor', $supplierId, [
+            'proveedor' => $payload,
+        ]);
+
         Response::success(['id' => (int) $supplierId], 'Proveedor creado correctamente', 201);
     }
 
@@ -70,6 +78,12 @@ class SupplierController {
         }
 
         $this->supplierModel->update($id, $validation['payload']);
+
+        AuditLogger::log('Actualizaci�n de proveedor', 'Proveedor', $id, [
+            'antes' => $this->extractSupplierAuditData($supplier),
+            'despues' => $this->extractSupplierAuditData($validation['payload']),
+        ]);
+
         Response::success(['id' => (int) $id], 'Proveedor actualizado correctamente');
     }
 
@@ -84,6 +98,11 @@ class SupplierController {
         }
 
         $this->supplierModel->softDelete($id);
+
+        AuditLogger::log('Eliminaci�n de proveedor', 'Proveedor', $id, [
+            'proveedor' => $this->extractSupplierAuditData($supplier),
+        ]);
+
         Response::success(null, 'Proveedor eliminado');
     }
 
@@ -145,6 +164,27 @@ class SupplierController {
             ],
         ];
     }
+
+    private function extractSupplierAuditData(array $data): array {
+        $fields = ['nombre', 'contacto', 'email', 'telefono', 'direccion', 'productos_suministrados', 'total_pedidos', 'activo'];
+        $filtered = AuditLogger::filterFields($data, $fields);
+
+        if (isset($filtered['productos_suministrados'])) {
+            $filtered['productos_suministrados'] = (int) $filtered['productos_suministrados'];
+        }
+
+        if (isset($filtered['total_pedidos'])) {
+            $filtered['total_pedidos'] = (int) $filtered['total_pedidos'];
+        }
+
+        if (isset($filtered['activo'])) {
+            $filtered['activo'] = (int) $filtered['activo'];
+        }
+
+        return $filtered;
+    }
 }
+
+
 
 

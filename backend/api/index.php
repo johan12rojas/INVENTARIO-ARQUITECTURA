@@ -37,6 +37,12 @@ require_once BASE_PATH . '/models/AlertModel.php';
 require_once BASE_PATH . '/controllers/AlertController.php';
 require_once BASE_PATH . '/models/SettingModel.php';
 require_once BASE_PATH . '/controllers/SettingController.php';
+require_once BASE_PATH . '/models/AuditModel.php';
+require_once BASE_PATH . '/controllers/AuditController.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Obtener ruta de la petición
 $requestUri = $_SERVER['REQUEST_URI'];
@@ -84,6 +90,7 @@ $segments = explode('/', $path);
 $resource = $segments[0] ?? '';
 $firstSegment = $segments[1] ?? null;
 $secondSegment = $segments[2] ?? null;
+$action = $firstSegment ?? '';
 
 // Enrutamiento
 try {
@@ -238,7 +245,11 @@ try {
                     $userController->index();
                 }
             } elseif ($requestMethod === 'POST') {
-                $userController->create();
+                if ($firstSegment && is_numeric($firstSegment)) {
+                    $userController->update((int)$firstSegment);
+                } else {
+                    $userController->create();
+                }
             } elseif (in_array($requestMethod, ['PUT', 'PATCH'], true)) {
                 $id = $firstSegment ? (int)$firstSegment : null;
                 if (!$id) {
@@ -270,6 +281,8 @@ try {
 
             if ($requestMethod === 'GET') {
                 $settingController->index();
+            } elseif ($requestMethod === 'POST' && $firstSegment === 'reset') {
+                $settingController->resetDefaults();
             } elseif (in_array($requestMethod, ['PUT', 'PATCH'], true) && $firstSegment) {
                 $settingController->update($firstSegment);
             } else {
@@ -277,7 +290,20 @@ try {
             }
             break;
 
-            
+        case 'audits':
+            $auditController = new AuditController();
+
+            if ($requestMethod === 'GET') {
+                if ($firstSegment === 'export') {
+                    $auditController->export();
+                } else {
+                    $auditController->index();
+                }
+            } else {
+                Response::error('Método no permitido', 405);
+            }
+            break;
+
         case '':
         case 'index.php':
             Response::success([
@@ -300,4 +326,3 @@ try {
     Response::error('Error interno del servidor', 500);
 }
 ?>
-

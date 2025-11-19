@@ -167,13 +167,20 @@
 }
 
 .orders-filters select {
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  border: 1px solid rgba(145, 158, 171, 0.35);
-  padding: 10px 14px;
-  font-size: 14px;
-  color: #212b36;
-  background: white;
+  font-size: 13px;
+  color: #475569;
+  background-color: #fff;
+  outline: none;
+  transition: all 0.2s ease;
   cursor: pointer;
+}
+
+.orders-filters select:focus {
+  border-color: #239c56;
+  box-shadow: 0 0 0 3px rgba(35, 156, 86, 0.1);
 }
 
 .orders-list {
@@ -328,5 +335,7 @@
     justify-content: center;
   }
 }
+
+
 
 

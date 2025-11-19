@@ -25,7 +25,9 @@ class MovementModel {
                     m.fecha_movimiento,
                     p.nombre AS producto_nombre,
                     p.sku AS producto_sku,
+                    p.sku AS producto_sku,
                     p.stock AS producto_stock,
+                    p.precio AS producto_precio,
                     u.nombre AS responsable_nombre
                   FROM movimientos m
                   LEFT JOIN productos p ON p.id = m.producto_id
@@ -49,6 +51,16 @@ class MovementModel {
             $params[':type'] = $filters['type'];
         }
 
+        if (!empty($filters['startDate'])) {
+            $query .= " AND m.fecha_movimiento >= :startDate";
+            $params[':startDate'] = $filters['startDate'];
+        }
+
+        if (!empty($filters['endDate'])) {
+            $query .= " AND m.fecha_movimiento <= :endDate";
+            $params[':endDate'] = $filters['endDate'];
+        }
+
         $query .= " ORDER BY m.fecha_movimiento DESC";
 
         $stmt = $this->conn->prepare($query);
@@ -65,6 +77,7 @@ class MovementModel {
                 'producto_nombre' => $row['producto_nombre'] ?? 'Producto eliminado',
                 'producto_sku' => $row['producto_sku'],
                 'producto_stock' => isset($row['producto_stock']) ? (int) $row['producto_stock'] : null,
+                'producto_precio' => isset($row['producto_precio']) ? (float) $row['producto_precio'] : 0,
                 'cantidad' => (int) $row['cantidad'],
                 'responsable_id' => $row['responsable_id'] !== null ? (int) $row['responsable_id'] : null,
                 'responsable_nombre' => $row['responsable_nombre'],
@@ -194,7 +207,7 @@ class MovementModel {
             $this->conn->beginTransaction();
 
             $stmt = $this->conn->prepare("
-                SELECT tipo, producto_id, cantidad
+                SELECT tipo, producto_id, cantidad, responsable_id, referencia, notas, fecha_movimiento
                 FROM movimientos
                 WHERE id = :id
                 LIMIT 1
@@ -243,7 +256,17 @@ class MovementModel {
             $updateStmt->execute();
 
             $this->conn->commit();
-            return true;
+
+            return [
+                'tipo' => $movement['tipo'],
+                'producto_id' => (int) $movement['producto_id'],
+                'cantidad' => $quantity,
+                'responsable_id' => $movement['responsable_id'] !== null ? (int) $movement['responsable_id'] : null,
+                'referencia' => $movement['referencia'],
+                'notas' => $movement['notas'],
+                'fecha_movimiento' => $movement['fecha_movimiento'],
+                'nuevo_stock' => $newStock,
+            ];
         } catch (Exception $e) {
             $this->conn->rollBack();
             throw $e;
@@ -277,5 +300,4 @@ class MovementModel {
         }, $stmt->fetchAll());
     }
 }
-
 

@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/UserModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class AuthController {
     private $userModel;
@@ -44,6 +45,21 @@ class AuthController {
 
         // Retornar datos del usuario (sin contraseña)
         $userData = $this->userModel->getUserData($user);
+
+        AuditLogger::log(
+            'Registro de usuario',
+            'Autenticaci�n',
+            $userData['id'],
+            [
+                'email' => $userData['email'],
+                'rol' => $userData['rol'] ?? null,
+            ],
+            [
+                'user_id' => $userData['id'],
+                'nombre_usuario' => $userData['nombre'],
+            ]
+        );
+
         Response::success($userData, 'Usuario registrado exitosamente', 201);
     }
 
@@ -83,7 +99,9 @@ class AuthController {
         }
 
         // Iniciar sesión
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_name'] = $user['nombre'];
@@ -91,6 +109,18 @@ class AuthController {
 
         // Retornar datos del usuario (sin contraseña)
         $userData = $this->userModel->getUserData($user);
+
+        AuditLogger::log(
+            'Inicio de sesión',
+            'Autenticación',
+            $userData['id'],
+            ['email' => $userData['email'], 'rol' => $userData['rol'] ?? null],
+            [
+                'user_id' => $userData['id'],
+                'nombre_usuario' => $userData['nombre'],
+            ]
+        );
+
         Response::success($userData, 'Inicio de sesión exitoso');
     }
 
@@ -98,7 +128,23 @@ class AuthController {
      * Cerrar sesión
      */
     public function logout() {
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $userId = $_SESSION['user_id'] ?? null;
+        $userName = $_SESSION['user_name'] ?? ($_SESSION['user_email'] ?? 'Usuario');
+
+        AuditLogger::log(
+            'Cierre de sesión',
+            'Autenticación',
+            $userId,
+            ['email' => $_SESSION['user_email'] ?? null],
+            [
+                'user_id' => $userId,
+                'nombre_usuario' => $userName,
+            ]
+        );
+
         session_unset();
         session_destroy();
         
@@ -109,7 +155,9 @@ class AuthController {
      * Verificar sesión actual
      */
     public function checkSession() {
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
         if (!isset($_SESSION['user_id'])) {
             Response::error('No hay sesión activa', 401);

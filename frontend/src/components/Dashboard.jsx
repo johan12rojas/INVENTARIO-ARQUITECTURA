@@ -76,7 +76,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <Header />
+      <Header onNavigate={setActiveMenu} />
       <div className="dashboard-body">
         <Sidebar
           activeMenu={activeMenu}

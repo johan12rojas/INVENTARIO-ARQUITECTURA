@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/UserModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class UserController {
     private $userModel;
@@ -23,6 +24,7 @@ class UserController {
                 'nombre' => $cleanUser['nombre'],
                 'email' => $cleanUser['email'],
                 'rol' => $cleanUser['rol'],
+                'avatar' => $cleanUser['avatar'] ?? null,
                 'activo' => (int) $cleanUser['activo'],
                 'fecha_creacion' => $cleanUser['fecha_creacion'],
                 'fecha_actualizacion' => $cleanUser['fecha_actualizacion'],
@@ -81,6 +83,11 @@ class UserController {
         }
 
         $cleanUser = $this->userModel->getUserData($user);
+
+        AuditLogger::log('Creaci�n de usuario', 'Usuario', $cleanUser['id'], [
+            'usuario' => $this->extractUserAuditData($cleanUser),
+        ]);
+
         Response::success(['user' => $cleanUser], 'Usuario creado', 201);
     }
 
@@ -94,7 +101,8 @@ class UserController {
     }
 
     public function update($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'PUT' && $_SERVER['REQUEST_METHOD'] !== 'PATCH') {
+        $method = $_SERVER['REQUEST_METHOD'];
+        if ($method !== 'PUT' && $method !== 'PATCH' && $method !== 'POST') {
             Response::error('Método no permitido', 405);
         }
 
@@ -103,8 +111,16 @@ class UserController {
             Response::error('Usuario no encontrado', 404);
         }
 
-        $payload = json_decode(file_get_contents('php://input'), true);
-        if (!$payload) {
+        // Handle multipart/form-data for file uploads (which requires POST)
+        // or JSON payload for standard updates
+        $payload = [];
+        if (!empty($_FILES) || !empty($_POST)) {
+            $payload = $_POST;
+        } else {
+            $payload = json_decode(file_get_contents('php://input'), true);
+        }
+
+        if (!$payload && empty($_FILES)) {
             Response::error('Datos no proporcionados', 400);
         }
 
@@ -122,9 +138,43 @@ class UserController {
             $updatedData['password'] = password_hash($payload['password'], PASSWORD_DEFAULT);
         }
 
+        // Handle Avatar Upload
+        if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['avatar'];
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            
+            if (!in_array($file['type'], $allowedTypes)) {
+                Response::error('Tipo de archivo no permitido. Solo JPG, PNG y WebP.', 400);
+            }
+
+            $uploadDir = __DIR__ . '/../imgs/avatars/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'user_' . $id . '_' . time() . '.' . $extension;
+            $targetPath = $uploadDir . $filename;
+
+            if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+                $updatedData['avatar'] = '/imgs/avatars/' . $filename;
+            } else {
+                Response::error('Error al subir la imagen', 500);
+            }
+        } elseif (isset($payload['remove_avatar']) && $payload['remove_avatar'] == 'true') {
+            $updatedData['avatar'] = null;
+        }
+
+        $beforeData = $this->extractUserAuditData($this->userModel->getUserData($currentUser));
+
         $this->userModel->update($id, $updatedData);
         $user = $this->userModel->findByIdWithoutActiveFilter($id);
         $cleanUser = $this->userModel->getUserData($user);
+
+        AuditLogger::log('Actualización de usuario', 'Usuario', $cleanUser['id'], [
+            'antes' => $beforeData,
+            'despues' => $this->extractUserAuditData($cleanUser),
+        ]);
 
         Response::success(['user' => $cleanUser], 'Usuario actualizado');
     }
@@ -140,8 +190,26 @@ class UserController {
         }
 
         $this->userModel->delete($id);
+
+        AuditLogger::log('Eliminaci�n de usuario', 'Usuario', $id, [
+            'usuario' => $this->extractUserAuditData($this->userModel->getUserData($user)),
+        ]);
+
         Response::success(null, 'Usuario eliminado');
     }
+
+    private function extractUserAuditData(array $data): array {
+        $fields = ['id', 'nombre', 'email', 'rol', 'activo'];
+        $filtered = AuditLogger::filterFields($data, $fields);
+
+        if (isset($filtered['id'])) {
+            $filtered['id'] = (int) $filtered['id'];
+        }
+
+        if (isset($filtered['activo'])) {
+            $filtered['activo'] = (int) $filtered['activo'];
+        }
+
+        return $filtered;
+    }
 }
-
-

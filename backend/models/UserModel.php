@@ -18,7 +18,7 @@ class UserModel {
      * Buscar usuario por email
      */
     public function findByEmail($email) {
-        $query = "SELECT id, nombre, email, password, rol, activo, fecha_creacion 
+        $query = "SELECT id, nombre, email, avatar, password, rol, activo, fecha_creacion 
                   FROM " . $this->table . " 
                   WHERE email = :email AND activo = 1
                   LIMIT 1";
@@ -34,7 +34,7 @@ class UserModel {
      * Buscar usuario por ID
      */
     public function findById($id) {
-        $query = "SELECT id, nombre, email, rol, activo, fecha_creacion 
+        $query = "SELECT id, nombre, email, avatar, rol, activo, fecha_creacion 
                   FROM " . $this->table . " 
                   WHERE id = :id AND activo = 1
                   LIMIT 1";
@@ -112,7 +112,7 @@ class UserModel {
     }
 
     public function findByIdWithoutActiveFilter($id) {
-        $query = "SELECT id, nombre, email, password, rol, activo, fecha_creacion, fecha_actualizacion
+        $query = "SELECT id, nombre, email, avatar, password, rol, activo, fecha_creacion, fecha_actualizacion
                   FROM " . $this->table . "
                   WHERE id = :id
                   LIMIT 1";
@@ -128,7 +128,7 @@ class UserModel {
      * Obtener listado completo de usuarios
      */
     public function getAll() {
-        $query = "SELECT id, nombre, email, password, rol, activo, fecha_creacion, fecha_actualizacion
+        $query = "SELECT id, nombre, email, avatar, password, rol, activo, fecha_creacion, fecha_actualizacion
                   FROM " . $this->table . "
                   ORDER BY nombre ASC";
 
@@ -155,7 +155,7 @@ class UserModel {
         $fields = [];
         $params = [':id' => $id];
 
-        foreach (['nombre', 'email', 'password', 'rol', 'activo'] as $field) {
+        foreach (['nombre', 'email', 'password', 'rol', 'activo', 'avatar'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = :$field";
                 $params[":$field"] = $data[$field];

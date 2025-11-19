@@ -8,6 +8,7 @@ import AlertsView from './AlertsView';
 import ReportsView from './ReportsView';
 import UsersRolesView from './UsersRolesView';
 import SettingsView from './SettingsView';
+import AuditsView from './AuditsView';
 import api from '../services/api';
 
 const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
@@ -71,51 +72,58 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
         const productsData = productsResponse?.data ?? {};
         const productSummary = productsData.summary ?? {};
         const productList = productsData.products ?? [];
+        
+        // Map products for quick lookup
+        const productMap = new Map(productList.map(p => [p.id, p]));
 
         const lowStockProducts = productList.filter(
           (item) => item.estado === 'low' && item.activo
         );
 
+        // --- Alerts Logic ---
         const alertsRaw = alertsResponse?.data?.alerts ?? [];
-        const deskProductFromAlerts = alertsRaw.find(
-          (alert) =>
-            alert.tipo === 'low_stock' &&
-            alert.producto?.sku === 'SKU-006' &&
-            alert.producto?.id
+        
+        // Identify products that already have a low_stock alert
+        const existingProductIds = new Set(
+          alertsRaw
+            .filter((alert) => alert.tipo === 'low_stock' && alert.producto?.id)
+            .map((alert) => alert.producto.id)
         );
-        let alertsWithDesk = alertsRaw;
-        if (!deskProductFromAlerts) {
-          const deskProduct = deskProductResponse?.data?.products?.find(
-            (product) => product.sku === 'SKU-006'
-          );
-          if (deskProduct && deskProduct.activo && deskProduct.estado === 'low') {
-            alertsWithDesk = [
-              {
-                id: `virtual-sku-006`,
-                tipo: 'low_stock',
-                titulo: `Stock Bajo - ${deskProduct.nombre}`,
-                mensaje: `El producto está por debajo del umbral mínimo (${deskProduct.stock}/${deskProduct.stock_minimo})`,
-                producto: {
-                  id: deskProduct.id,
-                  nombre: deskProduct.nombre,
-                  sku: deskProduct.sku,
-                  stock: deskProduct.stock,
-                  stock_minimo: deskProduct.stock_minimo,
-                  activo: deskProduct.activo,
-                },
-                severidad: 'medium',
-                leida: false,
-                fecha_creacion: new Date().toISOString(),
-              },
-              ...alertsRaw,
-            ];
-          }
-        }
+
+        // Generate virtual alerts for low stock products without existing alerts
+        const virtualAlerts = productList
+          .filter((product) => product.activo && product.estado === 'low')
+          .filter((product) => !existingProductIds.has(product.id))
+          .map((product) => ({
+            id: `virtual-product-${product.id}`,
+            tipo: 'low_stock',
+            titulo: `Stock Bajo - ${product.nombre}`,
+            mensaje: `El producto está por debajo del umbral mínimo (${product.stock}/${product.stock_minimo})`,
+            producto: {
+              id: product.id,
+              nombre: product.nombre,
+              sku: product.sku,
+              stock: product.stock,
+              stock_minimo: product.stock_minimo,
+              activo: product.activo,
+            },
+            severidad: 'medium',
+            leida: false,
+            fecha_creacion: new Date().toISOString(),
+          }));
+
+        // Merge and prioritize alerts
+        const allAlerts = [...virtualAlerts, ...alertsRaw];
+        
         const prioritizedAlerts = [
-          ...alertsWithDesk.filter((alert) => alert.tipo === 'low_stock'),
-          ...alertsWithDesk.filter((alert) => alert.tipo !== 'low_stock'),
+          ...allAlerts.filter((alert) => alert.tipo === 'low_stock'),
+          ...allAlerts.filter((alert) => alert.tipo !== 'low_stock'),
         ];
+        
+        // Slice for display but keep count accurate if needed elsewhere
         const alerts = prioritizedAlerts.slice(0, 5);
+
+        // --- Orders Logic ---
         const ordersSummary = ordersResponse?.data?.summary ?? {};
         const pendingOrders =
           ['pendiente', 'confirmado', 'enviado', 'en_transito'].reduce(
@@ -125,6 +133,9 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
 
         const movements = movementsResponse?.data?.movements ?? [];
         const now = new Date();
+        
+        // --- Stock Trend (Last 6 Months) ---
+        // Initialize buckets
         const monthlyTotals = new Map();
         for (let i = 5; i >= 0; i--) {
           const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -135,68 +146,82 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
             exit: 0,
           });
         }
+
+        // Single pass aggregation
         movements.forEach((movement) => {
-          const movementDate = movement.fecha_movimiento
-            ? new Date(movement.fecha_movimiento)
-            : null;
-          if (!movementDate) return;
-          const key = `${movementDate.getFullYear()}-${movementDate.getMonth()}`;
-          if (!monthlyTotals.has(key)) return;
-          const current = monthlyTotals.get(key);
-          if (movement.tipo === 'entry') {
-            current.entry += Number(movement.cantidad) || 0;
-          } else if (movement.tipo === 'exit') {
-            current.exit += Number(movement.cantidad) || 0;
+          if (!movement.fecha_movimiento) return;
+          const date = new Date(movement.fecha_movimiento);
+          const key = `${date.getFullYear()}-${date.getMonth()}`;
+          
+          if (monthlyTotals.has(key)) {
+            const current = monthlyTotals.get(key);
+            const qty = Number(movement.cantidad) || 0;
+            if (movement.tipo === 'entry') {
+              current.entry += qty;
+            } else if (movement.tipo === 'exit') {
+              current.exit += qty;
+            }
           }
         });
         const stockTrend = Array.from(monthlyTotals.values());
 
-        const today = new Date();
+        // --- Value Analysis (Last 7 Days) ---
+        // Initialize buckets
         const dailyTotals = new Map();
         for (let i = 6; i >= 0; i--) {
-          const date = new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            today.getDate() - i
-          );
+          const date = new Date(now);
+          date.setDate(now.getDate() - i);
           const key = date.toISOString().slice(0, 10);
           dailyTotals.set(key, {
             label: date.toLocaleDateString('es-ES', { weekday: 'short' }),
             value: 0,
+            count: 0
           });
         }
+
+        // Single pass aggregation for value
         movements.forEach((movement) => {
-          const movementDate = movement.fecha_movimiento
-            ? new Date(movement.fecha_movimiento)
-            : null;
-          if (!movementDate) return;
-          const key = movementDate.toISOString().slice(0, 10);
-          if (!dailyTotals.has(key)) return;
-          const current = dailyTotals.get(key);
-          current.value += Number(movement.cantidad) || 0;
+          if (!movement.fecha_movimiento) return;
+          const dateStr = movement.fecha_movimiento.slice(0, 10); // YYYY-MM-DD
+          
+          if (dailyTotals.has(dateStr)) {
+            const current = dailyTotals.get(dateStr);
+            const product = productMap.get(movement.producto_id);
+            const price = product ? Number(product.precio) : 0;
+            const qty = Number(movement.cantidad) || 0;
+            
+            // Calculate value moved (approximate based on current price)
+            current.value += qty * price;
+            current.count += 1;
+          }
         });
         const costAnalysis = Array.from(dailyTotals.values());
 
+        // --- Category Distribution (By Value) ---
         const categoryTotals = productList.reduce((acc, product) => {
           const key = product.categoria || 'Sin categoría';
-          const stockValue = Number(product.stock) || 0;
+          const stockValue = (Number(product.stock) || 0) * (Number(product.precio) || 0);
+          
           if (!acc[key]) {
             acc[key] = 0;
           }
           acc[key] += stockValue;
           return acc;
         }, {});
-        const totalStockAll = Object.values(categoryTotals).reduce(
+
+        const totalInventoryValue = Object.values(categoryTotals).reduce(
           (sum, value) => sum + value,
           0
         );
-        const categoryDistribution = Object.entries(categoryTotals).map(
-          ([label, value]) => ({
+
+        const categoryDistribution = Object.entries(categoryTotals)
+          .map(([label, value]) => ({
             label,
             value,
-            percent: totalStockAll === 0 ? 0 : Math.round((value / totalStockAll) * 100),
-          })
-        );
+            percent: totalInventoryValue === 0 ? 0 : Math.round((value / totalInventoryValue) * 100),
+          }))
+          .sort((a, b) => b.value - a.value) // Sort by value desc
+          .slice(0, 5); // Top 5 categories
 
         setHomeState({
           loading: false,
@@ -412,8 +437,8 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
 
         <section className="dashboard-card">
           <div className="dashboard-card-header">
-            <h3>Distribución por Categoría</h3>
-            <span>Inventario por tipo</span>
+            <h3>Valor por Categoría</h3>
+            <span>Distribución financiera</span>
           </div>
           {homeState.categoryDistribution.length === 0 ? (
             <p className="dashboard-empty">Sin datos de categorías.</p>
@@ -426,7 +451,7 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
                     <div
                       className="chart-bars-fill"
                       style={{ width: `${item.percent}%` }}
-                      title={`${item.percent}% (${item.value} uds)`}
+                      title={`${item.percent}% (${currencyFormatter.format(item.value)})`}
                     />
                   </div>
                   <span className="chart-value">{item.percent}%</span>
@@ -438,7 +463,7 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
 
         <section className="dashboard-card">
           <div className="dashboard-card-header">
-            <h3>Análisis de Costos</h3>
+            <h3>Movimiento de Valor</h3>
             <span>Últimos 7 días</span>
           </div>
           {homeState.costAnalysis.length === 0 ? (
@@ -455,7 +480,7 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
                     <div
                       className="chart-columns-bar"
                       style={{ height: `${(item.value / maxValue) * 100 || 0}%` }}
-                      title={`${item.value} movimientos`}
+                      title={`${currencyFormatter.format(item.value)} (${item.count} movs)`}
                     />
                     <span className="chart-label">{item.label}</span>
                   </div>
@@ -484,6 +509,8 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
         return <AlertsView />;
       case 'informes':
         return <ReportsView />;
+      case 'auditoria':
+        return <AuditsView />;
       case 'usuarios':
         return <UsersRolesView />;
       case 'configuracion':
@@ -518,5 +545,4 @@ const DashboardContent = ({ activeMenu, allowedMenus = [] }) => {
 };
 
 export default DashboardContent;
-
 

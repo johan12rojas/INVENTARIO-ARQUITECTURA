@@ -96,7 +96,10 @@ const SettingsView = () => {
     email: currentUser?.email || '',
     password: '',
     confirmPassword: '',
+    avatar: null,
+    avatarPreview: currentUser?.avatar ? `${api.API_BASE_URL.replace('/api', '')}${currentUser.avatar}` : null
   });
+
   const [profileErrors, setProfileErrors] = useState({});
   const [profileSaving, setProfileSaving] = useState(false);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
@@ -148,6 +151,8 @@ const SettingsView = () => {
       email: currentUser?.email || '',
       password: '',
       confirmPassword: '',
+      avatar: null,
+      avatarPreview: currentUser?.avatar ? `${api.API_BASE_URL.replace('/api', '')}${currentUser.avatar}` : null
     });
   }, [currentUser]);
 
@@ -216,16 +221,6 @@ const SettingsView = () => {
     }));
   };
 
-  const handleProfileFieldChange = (field, value) => {
-    setProfileForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (profileErrors[field]) {
-      setProfileErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
   const handlePreferenceChange = (field, value) => {
     setPreferences((prev) => ({
       ...prev,
@@ -238,6 +233,92 @@ const SettingsView = () => {
       ...prev,
       [field]: !prev[field],
     }));
+  };
+
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  const handleAvatarUpload = async (file) => {
+    if (!file) return;
+    
+    // Preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileForm((prev) => ({
+        ...prev,
+        avatarPreview: reader.result
+      }));
+    };
+    reader.readAsDataURL(file);
+
+    // Upload immediately
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    setAvatarLoading(true);
+    try {
+      const response = await api.updateUser(currentUser.id, formData);
+      if (!response?.success) {
+        throw new Error(response?.message || 'No se pudo subir la imagen');
+      }
+      const updatedUser = response.data?.user;
+      setCurrentUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      showMessage('success', 'Foto de perfil actualizada');
+    } catch (error) {
+      console.error('Error uploading avatar', error);
+      showMessage('error', error?.message || 'No se pudo subir la imagen');
+      // Revert preview if failed
+      setProfileForm((prev) => ({
+        ...prev,
+        avatarPreview: currentUser?.avatar ? `${api.API_BASE_URL.replace('/api', '')}${currentUser.avatar}` : null
+      }));
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar tu foto de perfil?')) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('remove_avatar', 'true');
+
+    setAvatarLoading(true);
+    try {
+      const response = await api.updateUser(currentUser.id, formData);
+      if (!response?.success) {
+        throw new Error(response?.message || 'No se pudo eliminar la imagen');
+      }
+      const updatedUser = response.data?.user;
+      setCurrentUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setProfileForm((prev) => ({
+        ...prev,
+        avatarPreview: null
+      }));
+      showMessage('success', 'Foto de perfil eliminada');
+    } catch (error) {
+      console.error('Error removing avatar', error);
+      showMessage('error', error?.message || 'No se pudo eliminar la imagen');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const handleProfileFieldChange = (field, value) => {
+    if (field === 'avatar') {
+      handleAvatarUpload(value);
+    } else {
+      setProfileForm((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+    if (profileErrors[field]) {
+      setProfileErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
   };
 
   const handleProfileSave = async () => {
@@ -270,27 +351,23 @@ const SettingsView = () => {
       return;
     }
 
-    const payload = {
-      nombre: profileForm.nombre.trim(),
-      email: profileForm.email.trim(),
-      rol: currentUser?.rol,
-      activo: currentUser?.activo ?? 1,
-    };
+    const formData = new FormData();
+    formData.append('nombre', profileForm.nombre.trim());
+    formData.append('email', profileForm.email.trim());
+    formData.append('rol', currentUser?.rol);
+    formData.append('activo', currentUser?.activo ?? 1);
+    
     if (profileForm.password) {
-      payload.password = profileForm.password;
+      formData.append('password', profileForm.password);
     }
 
     setProfileSaving(true);
     try {
-      const response = await api.updateUser(currentUser.id, payload);
+      const response = await api.updateUser(currentUser.id, formData);
       if (!response?.success) {
         throw new Error(response?.message || 'No se pudo actualizar el perfil');
       }
-      const updatedUser = response.data?.user || {
-        ...currentUser,
-        nombre: payload.nombre,
-        email: payload.email,
-      };
+      const updatedUser = response.data?.user;
       setCurrentUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setProfileForm((prev) => ({
@@ -344,10 +421,50 @@ const SettingsView = () => {
   const renderProfile = () => (
     <section className="settings-card profile-card">
       <div className="profile-header">
-        <div className="profile-avatar">{profileInitials}</div>
-        <div>
+        <div className="profile-avatar-container">
+          <div className="profile-avatar-wrapper">
+            <div className="profile-avatar large">
+              {avatarLoading ? (
+                <div className="avatar-loading">...</div>
+              ) : profileForm.avatarPreview ? (
+                <img 
+                  src={profileForm.avatarPreview} 
+                  alt="Avatar" 
+                  className="avatar-image"
+                />
+              ) : (
+                profileInitials
+              )}
+            </div>
+            <label className="avatar-overlay" htmlFor="avatar-upload">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </label>
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              onChange={(e) => handleProfileFieldChange('avatar', e.target.files[0])}
+              disabled={!isProfileEditable || avatarLoading}
+              className="hidden-input"
+            />
+          </div>
+          {profileForm.avatarPreview && !avatarLoading && (
+            <button 
+              type="button" 
+              className="remove-avatar-btn"
+              onClick={handleAvatarRemove}
+              title="Eliminar foto"
+            >
+              Eliminar foto
+            </button>
+          )}
+        </div>
+        <div className="profile-info-header">
           <h2>Perfil personal</h2>
-          <p>Actualiza tu información básica y preferencias personales.</p>
+          <p>Actualiza tu información básica, foto y preferencias.</p>
         </div>
       </div>
 
@@ -357,6 +474,8 @@ const SettingsView = () => {
       </div>
 
       <div className="profile-grid">
+
+
         <div className="settings-field">
           <label>Nombre completo</label>
           <input
@@ -482,13 +601,49 @@ const SettingsView = () => {
     </section>
   );
 
+  const handleResetDefaults = async () => {
+    if (!window.confirm('¿Estás seguro de que deseas restablecer todas las configuraciones a sus valores predeterminados? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.resetSettings();
+      if (response?.success) {
+        setSettings((prev) => ({
+          ...prev,
+          ...response.data.settings,
+        }));
+        showMessage('success', 'Configuraciones restablecidas correctamente');
+      } else {
+        throw new Error(response?.message || 'Error al restablecer configuraciones');
+      }
+    } catch (error) {
+      console.error('Error reset settings:', error);
+      showMessage('error', error?.message || 'No se pudieron restablecer las configuraciones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderAdminNotice = () => (
     <section className="settings-card info-card">
-      <h2>Configuraciones administrativas</h2>
-      <p>
-        Estas opciones solo están disponibles para administradores del sistema. Si necesitas
-        modificar parámetros globales, contacta con el equipo responsable.
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h2>Configuraciones administrativas</h2>
+          <p>
+            Estas opciones solo están disponibles para administradores del sistema.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="modal-button danger"
+          onClick={handleResetDefaults}
+          style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}
+        >
+          Restablecer valores predeterminados
+        </button>
+      </div>
     </section>
   );
 
@@ -864,6 +1019,7 @@ const SettingsView = () => {
               {renderBranding()}
               {renderNotifications()}
               {renderSecurity()}
+              {renderAdminNotice()}
             </>
           ) : (
             renderAdminNotice()

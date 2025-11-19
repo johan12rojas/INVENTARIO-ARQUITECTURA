@@ -131,19 +131,21 @@
 .users-field input,
 .users-field select {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 14px;
-  color: #212b36;
-  background: white;
-  transition: box-shadow 0.2s ease;
+  font-size: 13px;
+  color: #475569;
+  background-color: #fff;
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .users-field input:focus,
 .users-field select:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(35, 156, 86, 0.2);
+  border-color: #239c56;
+  box-shadow: 0 0 0 3px rgba(35, 156, 86, 0.1);
 }
 
 .users-actions-inline {
@@ -250,11 +252,25 @@
   gap: 8px;
 }
 
-.users-actions button {
+.users-actions .action {
   background: none;
   border: none;
+  padding: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.users-actions .action:hover {
+  background: rgba(145, 158, 171, 0.12);
+}
+
+.users-actions .action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .roles-permissions {

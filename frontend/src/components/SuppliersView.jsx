@@ -194,16 +194,20 @@ const SuppliersView = () => {
                     onClick={() => handleOpenModal('edit', supplier)}
                     disabled={rowActionId === supplier.id || submitting}
                   >
-                    ✎
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M13.5 6.5L17.5 10.5M5 19L6.61375 17.3862M18.2071 8.79289C18.5976 8.40237 18.5976 7.7692 18.2071 7.37868L16.6213 5.79289C16.2308 5.40237 15.5976 5.40237 15.2071 5.79289L6.61375 14.3862L5 19L9.61375 17.3862L18.2071 8.79289Z" stroke="#636f7b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </button>
                   <button
                     type="button"
-                    className="action delete"
+                    className="action"
                     title="Eliminar"
                     onClick={() => handleDelete(supplier)}
                     disabled={rowActionId === supplier.id || submitting}
                   >
-                    🗑
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 7H19M9 7V5C9 4.44772 9.44772 4 10 4H14C14.5523 4 15 4.44772 15 5V7M18 7V19C18 20.1046 17.1046 21 16 21H8C6.89543 21 6 20.1046 6 19V7H18Z" stroke="#d1424b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -254,5 +258,7 @@ const SuppliersView = () => {
 };
 
 export default SuppliersView;
+
+
 
 

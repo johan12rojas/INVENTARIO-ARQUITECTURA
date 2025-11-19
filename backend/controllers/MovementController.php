@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/MovementModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class MovementController {
     private $movementModel;
@@ -17,6 +18,8 @@ class MovementController {
         $filters = [
             'search' => isset($_GET['search']) ? trim($_GET['search']) : null,
             'type' => isset($_GET['type']) ? $_GET['type'] : null,
+            'startDate' => isset($_GET['startDate']) ? $_GET['startDate'] : null,
+            'endDate' => isset($_GET['endDate']) ? $_GET['endDate'] : null,
         ];
 
         $data = [
@@ -42,6 +45,14 @@ class MovementController {
 
         try {
             $result = $this->movementModel->registerMovement($validation['payload']);
+
+            AuditLogger::log('Registro de movimiento', 'Movimiento', $result['movement_id'], [
+                'movimiento' => array_merge(
+                    $this->extractMovementAuditData($validation['payload']),
+                    ['nuevo_stock' => $result['new_stock']]
+                ),
+            ]);
+
             Response::success([
                 'id' => $result['movement_id'],
                 'new_stock' => $result['new_stock'],
@@ -57,7 +68,12 @@ class MovementController {
         }
 
         try {
-            $this->movementModel->deleteMovement($id);
+            $result = $this->movementModel->deleteMovement($id);
+
+            AuditLogger::log('Eliminaci�n de movimiento', 'Movimiento', $id, [
+                'movimiento' => $result,
+            ]);
+
             Response::success(null, 'Movimiento eliminado');
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);
@@ -119,6 +135,27 @@ class MovementController {
             ],
         ];
     }
+
+    private function extractMovementAuditData(array $data): array {
+        $fields = ['tipo', 'producto_id', 'cantidad', 'responsable_id', 'referencia', 'notas', 'fecha_movimiento'];
+        $filtered = AuditLogger::filterFields($data, $fields);
+
+        if (isset($filtered['cantidad'])) {
+            $filtered['cantidad'] = (int) $filtered['cantidad'];
+        }
+
+        if (isset($filtered['producto_id'])) {
+            $filtered['producto_id'] = (int) $filtered['producto_id'];
+        }
+
+        if (isset($filtered['responsable_id'])) {
+            $filtered['responsable_id'] = $filtered['responsable_id'] !== null ? (int) $filtered['responsable_id'] : null;
+        }
+
+        return $filtered;
+    }
 }
+
+
 
 

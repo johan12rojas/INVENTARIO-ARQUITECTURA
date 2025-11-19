@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/OrderModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class OrderController {
     private $orderModel;
@@ -17,6 +18,8 @@ class OrderController {
         $filters = [
             'search' => isset($_GET['search']) ? trim($_GET['search']) : null,
             'status' => isset($_GET['status']) ? $_GET['status'] : null,
+            'startDate' => isset($_GET['startDate']) ? $_GET['startDate'] : null,
+            'endDate' => isset($_GET['endDate']) ? $_GET['endDate'] : null,
         ];
 
         $data = [
@@ -43,6 +46,15 @@ class OrderController {
 
         try {
             $orderId = $this->orderModel->create($validation['payload']);
+            $orderData = $this->orderModel->findById($orderId) ?: [];
+
+            AuditLogger::log('Creaci�n de pedido', 'Pedido', $orderId, [
+                'pedido' => array_merge(
+                    $this->extractOrderAuditData($orderData),
+                    ['productos' => $validation['payload']['productos']]
+                ),
+            ]);
+
             Response::success(['id' => $orderId], 'Pedido creado correctamente', 201);
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);
@@ -62,8 +74,19 @@ class OrderController {
             Response::error('Estado inválido', 400);
         }
 
+        $order = $this->orderModel->findById((int) $id);
+        if (!$order) {
+            Response::error('Pedido no encontrado', 404);
+        }
+
         try {
             $this->orderModel->updateStatus((int) $id, $status);
+
+            AuditLogger::log('Actualizaci�n de pedido', 'Pedido', $id, [
+                'estado_anterior' => $order['estado'],
+                'estado_nuevo' => $status,
+            ]);
+
             Response::success(null, 'Estado actualizado correctamente');
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);
@@ -75,8 +98,18 @@ class OrderController {
             Response::error('Método no permitido', 405);
         }
 
+        $order = $this->orderModel->findById((int) $id);
+        if (!$order) {
+            Response::error('Pedido no encontrado', 404);
+        }
+
         try {
             $this->orderModel->delete((int) $id);
+
+            AuditLogger::log('Eliminaci�n de pedido', 'Pedido', $id, [
+                'pedido' => $this->extractOrderAuditData($order),
+            ]);
+
             Response::success(null, 'Pedido eliminado');
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);
@@ -159,6 +192,31 @@ class OrderController {
             ],
         ];
     }
+
+    private function extractOrderAuditData(?array $data): array {
+        if (!$data) {
+            return [];
+        }
+
+        $fields = ['numero_pedido', 'proveedor_id', 'estado', 'monto_total', 'fecha_entrega_estimada', 'notas', 'creado_por', 'fecha_creacion', 'fecha_actualizacion'];
+        $filtered = AuditLogger::filterFields($data, $fields);
+
+        if (isset($filtered['proveedor_id'])) {
+            $filtered['proveedor_id'] = $filtered['proveedor_id'] !== null ? (int) $filtered['proveedor_id'] : null;
+        }
+
+        if (isset($filtered['creado_por'])) {
+            $filtered['creado_por'] = $filtered['creado_por'] !== null ? (int) $filtered['creado_por'] : null;
+        }
+
+        if (isset($filtered['monto_total'])) {
+            $filtered['monto_total'] = (float) $filtered['monto_total'];
+        }
+
+        return $filtered;
+    }
 }
+
+
 
 

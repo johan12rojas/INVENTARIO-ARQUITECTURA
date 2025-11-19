@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../models/SettingModel.php';
 require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/AuditLogger.php';
 
 class SettingController {
     private $settingModel;
@@ -15,8 +16,12 @@ class SettingController {
     }
 
     public function index() {
-        $settings = $this->settingModel->getAll();
-        Response::success(['settings' => $settings], 'Configuraciones del sistema');
+        try {
+            $settings = $this->settingModel->getAll();
+            Response::success(['settings' => $settings], 'Configuraciones del sistema');
+        } catch (Exception $e) {
+            Response::error('Error al obtener configuraciones: ' . $e->getMessage(), 500);
+        }
     }
 
     public function update($section) {
@@ -33,9 +38,14 @@ class SettingController {
         if (!$payload || !is_array($payload)) {
             Response::error('Datos de configuración inválidos', 400);
         }
-
+        $previous = $this->settingModel->getByKey($section);
         $sanitized = $this->sanitizeSection($section, $payload);
         $this->settingModel->update($section, $sanitized);
+
+        AuditLogger::log('Actualización de configuración', 'Configuración', $section, [
+            'antes' => $previous,
+            'despues' => $sanitized,
+        ]);
 
         Response::success([
             'section' => $section,
@@ -97,6 +107,55 @@ class SettingController {
         }
         return $policy;
     }
+    public function resetDefaults() {
+        $method = $_SERVER['REQUEST_METHOD'];
+        if ($method !== 'POST') {
+            Response::error('Método no permitido', 405);
+        }
+
+        $defaults = [
+            'general' => [
+                'nombre_empresa' => 'Sistema de Inventarios',
+                'correo_soporte' => 'soporte@inventarios.com',
+                'telefono' => '',
+                'moneda' => 'USD',
+                'zona_horaria' => 'UTC',
+                'formato_fecha' => 'DD/MM/YYYY',
+            ],
+            'branding' => [
+                'tema' => 'verde',
+                'color_primario' => '#239C56',
+                'color_secundario' => '#1B7B43',
+                'logo_url' => '/imgs/gestoricon.webp',
+                'favicon_url' => '/imgs/gestoricon.webp',
+            ],
+            'notificaciones' => [
+                'correo_alertas' => true,
+                'notificaciones_push' => false,
+                'resumen_diario' => true,
+                'umbral_stock' => 20,
+                'recordatorio_pedidos' => true,
+            ],
+            'seguridad' => [
+                'two_factor' => false,
+                'expiracion_sesion' => 60,
+                'politica_contrasena' => 'media',
+                'intentos_login' => 5,
+            ],
+        ];
+
+        try {
+            $this->settingModel->updateMany($defaults);
+            AuditLogger::log('Restablecimiento de configuraciones', 'Configuración', 'all', [
+                'accion' => 'reset_defaults'
+            ]);
+            Response::success(['settings' => $defaults], 'Configuraciones restablecidas a valores predeterminados');
+        } catch (Exception $e) {
+            Response::error('Error al restablecer configuraciones: ' . $e->getMessage(), 500);
+        }
+    }
 }
+
+
 
 

@@ -12,9 +12,34 @@ const Sidebar = ({ activeMenu, setActiveMenu, allowedMenus = [] }) => {
 
     const loadSummary = async () => {
       try {
-        const response = await api.getAlerts({});
-        if (isMounted && response?.success) {
-          setAlertsBadge(response.data?.summary?.unread ?? 0);
+        // Fetch both alerts and low stock products to calculate accurate count
+        const [alertsResponse, productsResponse] = await Promise.all([
+          api.getAlerts({}),
+          api.getProducts({ status: 'low_stock' })
+        ]);
+
+        if (!isMounted) return;
+
+        if (alertsResponse?.success) {
+          const alertsData = alertsResponse.data?.alerts || [];
+          const productsData = productsResponse?.data?.products || [];
+
+          // Logic to identify "virtual" alerts (low stock products without existing alert)
+          const existingProductIds = new Set(
+            alertsData
+              .filter((alert) => alert.tipo === 'low_stock' && alert.producto?.id)
+              .map((alert) => alert.producto.id)
+          );
+
+          const virtualAlertsCount = productsData
+            .filter((product) => product.activo && product.estado === 'low')
+            .filter((product) => !existingProductIds.has(product.id))
+            .length;
+
+          const dbUnreadCount = alertsData.filter(a => !a.leida).length;
+          const totalUnread = dbUnreadCount + virtualAlertsCount;
+
+          setAlertsBadge(totalUnread);
         }
       } catch (error) {
         console.error('No se pudo obtener el resumen de alertas', error);

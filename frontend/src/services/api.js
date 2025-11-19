@@ -5,6 +5,10 @@
 const API_BASE_URL = 'http://localhost/GESTOR_INVENTARIO/backend/api';
 
 class ApiService {
+  get API_BASE_URL() {
+    return API_BASE_URL;
+  }
+
   /**
    * Realizar petición a la API
    */
@@ -62,7 +66,7 @@ class ApiService {
    * Registrar nuevo usuario
    */
   async register(userData) {
-    return this.request('/auth/register.php', {
+    return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -72,7 +76,7 @@ class ApiService {
    * Iniciar sesión
    */
   async login(email, password) {
-    return this.request('/auth/login.php', {
+    return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -82,7 +86,7 @@ class ApiService {
    * Cerrar sesión
    */
   async logout() {
-    return this.request('/auth/logout.php', {
+    return this.request('/auth/logout', {
       method: 'POST',
     });
   }
@@ -91,7 +95,7 @@ class ApiService {
    * Verificar sesión actual
    */
   async checkSession() {
-    return this.request('/auth/check.php', {
+    return this.request('/auth/check', {
       method: 'GET',
     });
   }
@@ -321,6 +325,12 @@ class ApiService {
     });
   }
 
+  async resetSettings() {
+    return this.request('/settings/reset', {
+      method: 'POST',
+    });
+  }
+
   async createUser(payload) {
     return this.request('/users', {
       method: 'POST',
@@ -329,8 +339,9 @@ class ApiService {
   }
 
   async updateUser(id, payload) {
+    const isFormData = payload instanceof FormData;
     return this.request(`/users/${id}`, {
-      method: 'PUT',
+      method: isFormData ? 'POST' : 'PUT',
       body: payload,
     });
   }
@@ -340,7 +351,46 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  async getAudits(filters = {}) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '' || value === 'all') {
+        return;
+      }
+      params.append(key, value);
+    });
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    return this.request(`/audits${queryString}`, {
+      method: 'GET',
+    });
+  }
+
+  async exportAudits(filters = {}) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '' || value === 'all') {
+        return;
+      }
+      params.append(key, value);
+    });
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+
+    const response = await fetch(`${API_BASE_URL}/audits/export${queryString}`, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('No se pudo exportar el archivo');
+    }
+
+    return response.blob();
+  }
 }
 
 export default new ApiService();
-

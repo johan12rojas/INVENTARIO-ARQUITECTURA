@@ -228,3 +228,5 @@ const SupplierModal = ({ open, mode = 'create', supplier, loading, onClose, onSu
 export default SupplierModal;
 
 
+
+

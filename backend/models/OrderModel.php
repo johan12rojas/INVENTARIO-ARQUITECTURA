@@ -13,6 +13,20 @@ class OrderModel {
         $this->conn = $database->getConnection();
     }
 
+    public function findById(int $orderId) {
+        $stmt = $this->conn->prepare("
+            SELECT id, numero_pedido, proveedor_id, estado, monto_total, fecha_entrega_estimada, notas, creado_por, fecha_creacion, fecha_actualizacion
+            FROM pedidos
+            WHERE id = :id
+            LIMIT 1
+        ");
+        $stmt->bindValue(':id', $orderId, PDO::PARAM_INT);
+        $stmt->execute();
+        $order = $stmt->fetch();
+
+        return $order ?: null;
+    }
+
     public function getOrders(array $filters = []) {
         $query = "SELECT
                     o.id,
@@ -52,6 +66,16 @@ class OrderModel {
                 $query .= " AND o.estado = :status";
                 $params[':status'] = $filters['status'];
             }
+        }
+
+        if (!empty($filters['startDate'])) {
+            $query .= " AND o.fecha_creacion >= :startDate";
+            $params[':startDate'] = $filters['startDate'];
+        }
+
+        if (!empty($filters['endDate'])) {
+            $query .= " AND o.fecha_creacion <= :endDate";
+            $params[':endDate'] = $filters['endDate'];
         }
 
         $query .= " GROUP BY
@@ -272,5 +296,4 @@ class OrderModel {
         }
     }
 }
-
 

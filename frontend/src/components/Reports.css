@@ -31,50 +31,67 @@
   align-items: center;
 }
 
-.reports-select,
-.reports-header-actions button {
+.reports-select {
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  border: 1px solid rgba(145, 158, 171, 0.32);
-  padding: 10px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  background: white;
+  font-size: 13px;
+  color: #475569;
+  background-color: #fff;
+  outline: none;
   transition: all 0.2s ease;
-  color: #212b36;
+  cursor: pointer;
 }
 
-.reports-header-actions button.btn-primary {
-  background: #239c56;
+.reports-select:focus {
+  border-color: #239c56;
+  box-shadow: 0 0 0 3px rgba(35, 156, 86, 0.1);
+}
+
+.reports-header-actions .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  background: linear-gradient(135deg, #239C56, #1c8e4c);
   color: white;
-  border: 1px solid #239c56;
-  box-shadow: 0 6px 16px rgba(35, 156, 86, 0.18);
+  box-shadow: 0 6px 16px rgba(35, 156, 86, 0.28);
 }
 
-.reports-header-actions button.btn-primary:hover {
+.reports-header-actions .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 18px rgba(35, 156, 86, 0.22);
 }
 
-.reports-header-actions button.btn-ghost {
+.reports-header-actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s ease;
   background: white;
-  color: #239c56;
-  border: 1px solid rgba(35, 156, 86, 0.32);
-  box-shadow: none;
+  color: #239C56;
+  border: 1px solid rgba(35, 156, 86, 0.25);
+  box-shadow: 0 3px 10px rgba(35, 156, 86, 0.12);
 }
 
-.reports-header-actions button.btn-ghost:hover {
-  background: rgba(35, 156, 86, 0.08);
+.reports-header-actions .btn-ghost:hover {
+  background: #f8f9fb;
+  color: #1f2a37;
+  border-color: #cfd6e4;
 }
 
-.reports-select:focus,
-.reports-header-actions button:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(35, 156, 86, 0.2);
-}
 
-.reports-header-actions button:hover {
-  transform: translateY(-1px);
-}
 
 .reports-alert {
   border-radius: 12px;
@@ -126,6 +143,9 @@
 }
 
 .reports-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid transparent;
   background: white;
   border-radius: 999px;
@@ -241,57 +261,6 @@
   margin: 0;
 }
 
-.reports-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  min-height: 180px;
-}
-
-.reports-chart.bars .reports-chart-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.reports-chart-bar {
-  width: 38px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(35, 156, 86, 0.95), rgba(35, 156, 86, 0.45));
-  transition: height 0.3s ease;
-  min-height: 8px;
-}
-
-.reports-chart.stacked {
-  gap: 18px;
-  align-items: flex-end;
-}
-
-.reports-chart-stack {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.reports-chart-block {
-  width: 42px;
-  border-radius: 10px;
-  transition: height 0.3s ease;
-}
-
-.reports-chart-block.ventas {
-  background: linear-gradient(180deg, rgba(35, 156, 86, 0.9), rgba(35, 156, 86, 0.4));
-}
-
-.reports-chart-block.compras {
-  background: linear-gradient(180deg, rgba(249, 115, 22, 0.85), rgba(253, 186, 116, 0.6));
-  margin-top: 6px;
-}
-
 .reports-badge {
   border-radius: 999px;
   padding: 4px 10px;
@@ -352,49 +321,7 @@
   text-align: center;
 }
 
-@media (max-width: 768px) {
-  .reports-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 
-  .reports-header-actions {
-    width: 100%;
-  }
-
-  .reports-select,
-  .reports-header-actions button {
-    flex: 1;
-  }
-
-  .reports-content {
-    padding: 18px;
-  }
-}
-
-.reports-chart.donut {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.reports-donut-segment {
-  background: rgba(15, 23, 42, 0.03);
-  border-radius: 12px;
-  padding: 12px 16px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.reports-donut-segment span {
-  font-size: 13px;
-  color: #475569;
-}
-
-.reports-donut-segment strong {
-  display: block;
-  font-size: 13px;
-  color: #1f2933;
-}
 
 @media (max-width: 768px) {
   .reports-header {
